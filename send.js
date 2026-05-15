@@ -63,19 +63,28 @@ if (isPhone) {
 
 if (!opened) {
   await page.goto('https://web.whatsapp.com', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#side', { timeout: 15_000 });
+  await page.waitForSelector('input[placeholder*="Search"]', { timeout: 15_000 });
 
-  const searchInput = await page.$('input[placeholder*="Search"], [data-testid="search-input"]');
+  const searchInput = await page.$('input[placeholder*="Search"]');
   if (searchInput) {
     await searchInput.click();
     await searchInput.type(target, { delay: 40 });
     await page.waitForTimeout(2000);
 
-    const firstResult = await page.$('[data-testid="cell-frame-container"]');
-    if (firstResult) {
-      await firstResult.click();
-      await page.waitForTimeout(1000);
-      opened = true;
+    // Click via Playwright element handle — triggers full conversation navigation
+    const items = await page.$$('[data-testid="cell-frame-container"]');
+    for (const item of items) {
+      const match = await item.evaluate((el, name) => {
+        const nameEl = el.querySelector('[data-testid="cell-frame-title"] span[dir="auto"]');
+        const t = nameEl?.getAttribute('title') || nameEl?.textContent?.trim() || '';
+        return t.toLowerCase().includes(name.toLowerCase());
+      }, target);
+      if (match) {
+        await item.click();
+        await page.waitForTimeout(2000);
+        opened = true;
+        break;
+      }
     }
   }
 }
